@@ -18,6 +18,7 @@ let gameOver = false;
 let fallTime = 0;
 let fallInterval = 1000; // 1秒ごとに落下
 let grid = [];
+let scoreText;
 const GRID_WIDTH = 10;
 const GRID_HEIGHT = 20;
 const BLOCK_SIZE = 30;
@@ -29,7 +30,7 @@ function preload() {
 
 function create() {
     // スコア表示
-    this.add.text(20, 20, 'Score: 0', { fontSize: '25px', fill: '#000' });
+    scoreText = this.add.text(20, 20, 'Score: 0', { fontSize: '25px', fill: '#000' });
 
     // グリッドの初期化
     for (let y = 0; y < GRID_HEIGHT; y++) {
@@ -62,8 +63,11 @@ function update(time, delta) {
         if (canMove(0, 1)) {
             moveTetrominoDown();
         } else {
-            lockTetromino();
-            createTetromino(this);
+            lockTetromino(this);
+            if (!createTetromino(this)) {
+                gameOver = true;
+                showGameOver(this);
+            }
         }
     }
     if (cursors.up.isDown) {
@@ -77,8 +81,11 @@ function update(time, delta) {
         if (canMove(0, 1)) {
             moveTetrominoDown();
         } else {
-            lockTetromino();
-            createTetromino(this);
+            lockTetromino(this);
+            if (!createTetromino(this)) {
+                gameOver = true;
+                showGameOver(this);
+            }
         }
     }
 }
@@ -102,6 +109,19 @@ function createTetromino(scene) {
     const startX = Math.floor(GRID_WIDTH / 2) - Math.floor(shape[0].length / 2);
     const startY = 0;
     
+    // 初期位置で衝突チェック
+    for (let y = 0; y < shape.length; y++) {
+        for (let x = 0; x < shape[y].length; x++) {
+            if (shape[y][x]) {
+                const gridX = startX + x;
+                const gridY = startY + y;
+                if (gridY >= 0 && grid[gridY][gridX]) {
+                    return false; // ゲームオーバー
+                }
+            }
+        }
+    }
+    
     for (let y = 0; y < shape.length; y++) {
         for (let x = 0; x < shape[y].length; x++) {
             if (shape[y][x]) {
@@ -114,6 +134,7 @@ function createTetromino(scene) {
             }
         }
     }
+    return true;
 }
 
 function canMove(dx, dy) {
@@ -150,21 +171,23 @@ function moveTetrominoDown() {
     });
 }
 
-function lockTetromino() {
+function lockTetromino(scene) {
     tetromino.getChildren().forEach(block => {
         const gridX = Math.floor(block.x / BLOCK_SIZE);
         const gridY = Math.floor(block.y / BLOCK_SIZE);
         
         if (gridY >= 0) {
             grid[gridY][gridX] = 1;
+            // 着地したブロックを表示
+            const landedBlock = scene.add.image(block.x, block.y, 'block');
         }
     });
     
     // ラインの消去チェック
-    checkLines();
+    checkLines(scene);
 }
 
-function checkLines() {
+function checkLines(scene) {
     for (let y = GRID_HEIGHT - 1; y >= 0; y--) {
         if (grid[y].every(cell => cell === 1)) {
             // ラインを消去
@@ -173,9 +196,36 @@ function checkLines() {
             
             // スコア加算
             score += 100;
-            this.add.text(20, 20, `Score: ${score}`, { fontSize: '25px', fill: '#000' });
+            scoreText.setText(`Score: ${score}`);
         }
     }
+}
+
+function showGameOver(scene) {
+    const gameOverText = scene.add.text(
+        config.width / 2,
+        config.height / 2,
+        'GAME OVER',
+        { fontSize: '48px', fill: '#ff0000' }
+    ).setOrigin(0.5);
+    
+    const restartText = scene.add.text(
+        config.width / 2,
+        config.height / 2 + 60,
+        'Press SPACE to restart',
+        { fontSize: '24px', fill: '#000' }
+    ).setOrigin(0.5);
+    
+    // スペースキーでリスタート
+    scene.input.keyboard.on('keydown-SPACE', () => {
+        gameOver = false;
+        score = 0;
+        scoreText.setText('Score: 0');
+        grid = Array(GRID_HEIGHT).fill().map(() => Array(GRID_WIDTH).fill(0));
+        gameOverText.destroy();
+        restartText.destroy();
+        createTetromino(scene);
+    });
 }
 
 function rotateTetromino() {

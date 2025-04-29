@@ -19,9 +19,12 @@ let fallTime = 0;
 let fallInterval = 1000; // 1秒ごとに落下
 let grid = [];
 let scoreText;
+let landedBlocks;
 const GRID_WIDTH = 10;
 const GRID_HEIGHT = 20;
 const BLOCK_SIZE = 30;
+const GRID_OFFSET_X = 150; // グリッドのX座標オフセット
+const GRID_OFFSET_Y = 50;  // グリッドのY座標オフセット
 
 function preload() {
     // テトリミノの画像をロード
@@ -31,6 +34,9 @@ function preload() {
 function create() {
     // スコア表示
     scoreText = this.add.text(20, 20, 'Score: 0', { fontSize: '25px', fill: '#000' });
+
+    // 着地したブロックのグループ
+    landedBlocks = this.add.group();
 
     // グリッドの初期化
     for (let y = 0; y < GRID_HEIGHT; y++) {
@@ -126,8 +132,8 @@ function createTetromino(scene) {
         for (let x = 0; x < shape[y].length; x++) {
             if (shape[y][x]) {
                 const block = scene.add.image(
-                    (startX + x) * BLOCK_SIZE,
-                    (startY + y) * BLOCK_SIZE,
+                    GRID_OFFSET_X + (startX + x) * BLOCK_SIZE,
+                    GRID_OFFSET_Y + (startY + y) * BLOCK_SIZE,
                     'block'
                 );
                 tetromino.add(block);
@@ -143,13 +149,15 @@ function canMove(dx, dy) {
         const newY = block.y + dy * BLOCK_SIZE;
         
         // 画面の境界チェック
-        if (newX < 0 || newX >= GRID_WIDTH * BLOCK_SIZE || newY >= GRID_HEIGHT * BLOCK_SIZE) {
+        if (newX < GRID_OFFSET_X || 
+            newX >= GRID_OFFSET_X + GRID_WIDTH * BLOCK_SIZE || 
+            newY >= GRID_OFFSET_Y + GRID_HEIGHT * BLOCK_SIZE) {
             return false;
         }
         
         // グリッド上の衝突チェック
-        const gridX = Math.floor(newX / BLOCK_SIZE);
-        const gridY = Math.floor(newY / BLOCK_SIZE);
+        const gridX = Math.floor((newX - GRID_OFFSET_X) / BLOCK_SIZE);
+        const gridY = Math.floor((newY - GRID_OFFSET_Y) / BLOCK_SIZE);
         
         if (gridY >= 0 && grid[gridY][gridX]) {
             return false;
@@ -173,13 +181,14 @@ function moveTetrominoDown() {
 
 function lockTetromino(scene) {
     tetromino.getChildren().forEach(block => {
-        const gridX = Math.floor(block.x / BLOCK_SIZE);
-        const gridY = Math.floor(block.y / BLOCK_SIZE);
+        const gridX = Math.floor((block.x - GRID_OFFSET_X) / BLOCK_SIZE);
+        const gridY = Math.floor((block.y - GRID_OFFSET_Y) / BLOCK_SIZE);
         
         if (gridY >= 0) {
             grid[gridY][gridX] = 1;
             // 着地したブロックを表示
             const landedBlock = scene.add.image(block.x, block.y, 'block');
+            landedBlocks.add(landedBlock);
         }
     });
     
@@ -197,6 +206,25 @@ function checkLines(scene) {
             // スコア加算
             score += 100;
             scoreText.setText(`Score: ${score}`);
+            
+            // 着地したブロックを更新
+            updateLandedBlocks();
+        }
+    }
+}
+
+function updateLandedBlocks() {
+    landedBlocks.clear(true, true);
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+        for (let x = 0; x < GRID_WIDTH; x++) {
+            if (grid[y][x]) {
+                const block = game.scene.scenes[0].add.image(
+                    GRID_OFFSET_X + x * BLOCK_SIZE,
+                    GRID_OFFSET_Y + y * BLOCK_SIZE,
+                    'block'
+                );
+                landedBlocks.add(block);
+            }
         }
     }
 }
@@ -222,6 +250,8 @@ function showGameOver(scene) {
         score = 0;
         scoreText.setText('Score: 0');
         grid = Array(GRID_HEIGHT).fill().map(() => Array(GRID_WIDTH).fill(0));
+        landedBlocks.clear(true, true);
+        tetromino.clear(true, true);
         gameOverText.destroy();
         restartText.destroy();
         createTetromino(scene);

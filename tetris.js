@@ -20,6 +20,7 @@ let fallInterval = 1000; // 1秒ごとに落下
 let grid = [];
 let scoreText;
 let landedBlocks;
+let gameArea;
 const GRID_WIDTH = 10;
 const GRID_HEIGHT = 20;
 const BLOCK_SIZE = 30;
@@ -32,6 +33,16 @@ function preload() {
 }
 
 function create() {
+    // ゲームエリアの背景を描画
+    gameArea = this.add.rectangle(
+        GRID_OFFSET_X + (GRID_WIDTH * BLOCK_SIZE) / 2,
+        GRID_OFFSET_Y + (GRID_HEIGHT * BLOCK_SIZE) / 2,
+        GRID_WIDTH * BLOCK_SIZE,
+        GRID_HEIGHT * BLOCK_SIZE,
+        0xffffff
+    );
+    gameArea.setStrokeStyle(2, 0x000000);
+
     // スコア表示
     scoreText = this.add.text(20, 20, 'Score: 0', { fontSize: '25px', fill: '#000' });
 
@@ -240,12 +251,12 @@ function showGameOver(scene) {
     const restartText = scene.add.text(
         config.width / 2,
         config.height / 2 + 60,
-        'Press SPACE to restart',
+        'Press R to restart',
         { fontSize: '24px', fill: '#000' }
     ).setOrigin(0.5);
     
-    // スペースキーでリスタート
-    scene.input.keyboard.on('keydown-SPACE', () => {
+    // Rキーでリスタート
+    scene.input.keyboard.on('keydown-R', () => {
         gameOver = false;
         score = 0;
         scoreText.setText('Score: 0');
@@ -260,4 +271,32 @@ function showGameOver(scene) {
 
 function rotateTetromino() {
     // テトリミノの回転ロジックを実装
+    const blocks = tetromino.getChildren();
+    if (blocks.length === 0) return;
+    
+    // 中心点を計算
+    const centerX = blocks[0].x;
+    const centerY = blocks[0].y;
+    
+    // 各ブロックを回転
+    blocks.forEach(block => {
+        const dx = block.x - centerX;
+        const dy = block.y - centerY;
+        
+        // 90度回転（時計回り）
+        const newX = centerX - dy;
+        const newY = centerY + dx;
+        
+        // 回転後の位置が有効かチェック
+        const gridX = Math.floor((newX - GRID_OFFSET_X) / BLOCK_SIZE);
+        const gridY = Math.floor((newY - GRID_OFFSET_Y) / BLOCK_SIZE);
+        
+        if (gridX < 0 || gridX >= GRID_WIDTH || gridY >= GRID_HEIGHT || 
+            (gridY >= 0 && grid[gridY][gridX])) {
+            return; // 回転できない場合は何もしない
+        }
+        
+        block.x = newX;
+        block.y = newY;
+    });
 }

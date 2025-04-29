@@ -15,6 +15,12 @@ const game = new Phaser.Game(config);
 let tetromino;
 let score = 0;
 let gameOver = false;
+let fallTime = 0;
+let fallInterval = 1000; // 1秒ごとに落下
+let grid = [];
+const GRID_WIDTH = 10;
+const GRID_HEIGHT = 20;
+const BLOCK_SIZE = 30;
 
 function preload() {
     // テトリミノの画像をロード
@@ -25,26 +31,55 @@ function create() {
     // スコア表示
     this.add.text(20, 20, 'Score: 0', { fontSize: '25px', fill: '#000' });
 
+    // グリッドの初期化
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+        grid[y] = [];
+        for (let x = 0; x < GRID_WIDTH; x++) {
+            grid[y][x] = 0;
+        }
+    }
+
     // テトリミノの初期化
     tetromino = this.add.group();
     createTetromino(this);
 }
 
-function update() {
+function update(time, delta) {
     if (gameOver) return;
 
     // キーボード入力の処理
     const cursors = this.input.keyboard.createCursorKeys();
     if (cursors.left.isDown) {
-        moveTetromino(-1);
+        if (canMove(-1, 0)) {
+            moveTetromino(-1);
+        }
     } else if (cursors.right.isDown) {
-        moveTetromino(1);
+        if (canMove(1, 0)) {
+            moveTetromino(1);
+        }
     }
     if (cursors.down.isDown) {
-        moveTetrominoDown();
+        if (canMove(0, 1)) {
+            moveTetrominoDown();
+        } else {
+            lockTetromino();
+            createTetromino(this);
+        }
     }
     if (cursors.up.isDown) {
         rotateTetromino();
+    }
+
+    // 自動落下
+    fallTime += delta;
+    if (fallTime >= fallInterval) {
+        fallTime = 0;
+        if (canMove(0, 1)) {
+            moveTetrominoDown();
+        } else {
+            lockTetromino();
+            createTetromino(this);
+        }
     }
 }
 
@@ -61,26 +96,78 @@ function createTetromino(scene) {
     ];
 
     const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    tetromino.clear(true, true);
+    
     for (let y = 0; y < shape.length; y++) {
         for (let x = 0; x < shape[y].length; x++) {
             if (shape[y][x]) {
-                const block = scene.add.image(x * 30 + 300, y * 30, 'block');
+                const block = scene.add.image(x * BLOCK_SIZE + 300, y * BLOCK_SIZE, 'block');
                 tetromino.add(block);
             }
         }
     }
 }
 
+function canMove(dx, dy) {
+    return tetromino.getChildren().every(block => {
+        const newX = block.x + dx * BLOCK_SIZE;
+        const newY = block.y + dy * BLOCK_SIZE;
+        
+        // 画面の境界チェック
+        if (newX < 0 || newX >= GRID_WIDTH * BLOCK_SIZE || newY >= GRID_HEIGHT * BLOCK_SIZE) {
+            return false;
+        }
+        
+        // グリッド上の衝突チェック
+        const gridX = Math.floor(newX / BLOCK_SIZE);
+        const gridY = Math.floor(newY / BLOCK_SIZE);
+        
+        if (gridY >= 0 && grid[gridY][gridX]) {
+            return false;
+        }
+        
+        return true;
+    });
+}
+
 function moveTetromino(dx) {
     tetromino.getChildren().forEach(block => {
-        block.x += dx * 30;
+        block.x += dx * BLOCK_SIZE;
     });
 }
 
 function moveTetrominoDown() {
     tetromino.getChildren().forEach(block => {
-        block.y += 30;
+        block.y += BLOCK_SIZE;
     });
+}
+
+function lockTetromino() {
+    tetromino.getChildren().forEach(block => {
+        const gridX = Math.floor(block.x / BLOCK_SIZE);
+        const gridY = Math.floor(block.y / BLOCK_SIZE);
+        
+        if (gridY >= 0) {
+            grid[gridY][gridX] = 1;
+        }
+    });
+    
+    // ラインの消去チェック
+    checkLines();
+}
+
+function checkLines() {
+    for (let y = GRID_HEIGHT - 1; y >= 0; y--) {
+        if (grid[y].every(cell => cell === 1)) {
+            // ラインを消去
+            grid.splice(y, 1);
+            grid.unshift(new Array(GRID_WIDTH).fill(0));
+            
+            // スコア加算
+            score += 100;
+            this.add.text(20, 20, `Score: ${score}`, { fontSize: '25px', fill: '#000' });
+        }
+    }
 }
 
 function rotateTetromino() {

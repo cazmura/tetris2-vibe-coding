@@ -98,10 +98,18 @@ function createTetromino(scene) {
     const shape = shapes[Math.floor(Math.random() * shapes.length)];
     tetromino.clear(true, true);
     
+    // テトリミノの初期位置を画面上部中央に設定
+    const startX = Math.floor(GRID_WIDTH / 2) - Math.floor(shape[0].length / 2);
+    const startY = 0;
+    
     for (let y = 0; y < shape.length; y++) {
         for (let x = 0; x < shape[y].length; x++) {
             if (shape[y][x]) {
-                const block = scene.add.image(x * BLOCK_SIZE + 300, y * BLOCK_SIZE, 'block');
+                const block = scene.add.image(
+                    (startX + x) * BLOCK_SIZE,
+                    (startY + y) * BLOCK_SIZE,
+                    'block'
+                );
                 tetromino.add(block);
             }
         }

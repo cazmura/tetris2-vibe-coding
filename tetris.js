@@ -21,6 +21,7 @@ let grid = [];
 let scoreText;
 let landedBlocks;
 let gameArea;
+let currentShape;
 const GRID_WIDTH = 10;
 const GRID_HEIGHT = 20;
 const BLOCK_SIZE = 30;
@@ -119,17 +120,17 @@ function createTetromino(scene) {
         [[0, 1, 1], [1, 1, 0]]  // Z
     ];
 
-    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    currentShape = shapes[Math.floor(Math.random() * shapes.length)];
     tetromino.clear(true, true);
     
     // テトリミノの初期位置を画面上部中央に設定
-    const startX = Math.floor(GRID_WIDTH / 2) - Math.floor(shape[0].length / 2);
+    const startX = Math.floor(GRID_WIDTH / 2) - Math.floor(currentShape[0].length / 2);
     const startY = 0;
     
     // 初期位置で衝突チェック
-    for (let y = 0; y < shape.length; y++) {
-        for (let x = 0; x < shape[y].length; x++) {
-            if (shape[y][x]) {
+    for (let y = 0; y < currentShape.length; y++) {
+        for (let x = 0; x < currentShape[y].length; x++) {
+            if (currentShape[y][x]) {
                 const gridX = startX + x;
                 const gridY = startY + y;
                 if (gridY >= 0 && grid[gridY][gridX]) {
@@ -139,9 +140,9 @@ function createTetromino(scene) {
         }
     }
     
-    for (let y = 0; y < shape.length; y++) {
-        for (let x = 0; x < shape[y].length; x++) {
-            if (shape[y][x]) {
+    for (let y = 0; y < currentShape.length; y++) {
+        for (let x = 0; x < currentShape[y].length; x++) {
+            if (currentShape[y][x]) {
                 const block = scene.add.image(
                     GRID_OFFSET_X + (startX + x) * BLOCK_SIZE,
                     GRID_OFFSET_Y + (startY + y) * BLOCK_SIZE,
@@ -251,12 +252,12 @@ function showGameOver(scene) {
     const restartText = scene.add.text(
         config.width / 2,
         config.height / 2 + 60,
-        'Press R to restart',
+        'Press ENTER to restart',
         { fontSize: '24px', fill: '#000' }
     ).setOrigin(0.5);
     
-    // Rキーでリスタート
-    scene.input.keyboard.on('keydown-R', () => {
+    // エンターキーでリスタート
+    scene.input.keyboard.on('keydown-ENTER', () => {
         gameOver = false;
         score = 0;
         scoreText.setText('Score: 0');
@@ -270,33 +271,57 @@ function showGameOver(scene) {
 }
 
 function rotateTetromino() {
-    // テトリミノの回転ロジックを実装
-    const blocks = tetromino.getChildren();
-    if (blocks.length === 0) return;
+    if (!currentShape) return;
     
-    // 中心点を計算
+    // 現在の形状を回転
+    const rotatedShape = [];
+    for (let i = 0; i < currentShape[0].length; i++) {
+        rotatedShape[i] = [];
+        for (let j = currentShape.length - 1; j >= 0; j--) {
+            rotatedShape[i].push(currentShape[j][i]);
+        }
+    }
+    
+    // 回転後の位置が有効かチェック
+    const blocks = tetromino.getChildren();
     const centerX = blocks[0].x;
     const centerY = blocks[0].y;
     
-    // 各ブロックを回転
-    blocks.forEach(block => {
-        const dx = block.x - centerX;
-        const dy = block.y - centerY;
-        
-        // 90度回転（時計回り）
-        const newX = centerX - dy;
-        const newY = centerY + dx;
-        
-        // 回転後の位置が有効かチェック
-        const gridX = Math.floor((newX - GRID_OFFSET_X) / BLOCK_SIZE);
-        const gridY = Math.floor((newY - GRID_OFFSET_Y) / BLOCK_SIZE);
-        
-        if (gridX < 0 || gridX >= GRID_WIDTH || gridY >= GRID_HEIGHT || 
-            (gridY >= 0 && grid[gridY][gridX])) {
-            return; // 回転できない場合は何もしない
+    let canRotate = true;
+    for (let y = 0; y < rotatedShape.length; y++) {
+        for (let x = 0; x < rotatedShape[y].length; x++) {
+            if (rotatedShape[y][x]) {
+                const newX = centerX + (x - Math.floor(rotatedShape[y].length / 2)) * BLOCK_SIZE;
+                const newY = centerY + (y - Math.floor(rotatedShape.length / 2)) * BLOCK_SIZE;
+                
+                const gridX = Math.floor((newX - GRID_OFFSET_X) / BLOCK_SIZE);
+                const gridY = Math.floor((newY - GRID_OFFSET_Y) / BLOCK_SIZE);
+                
+                if (gridX < 0 || gridX >= GRID_WIDTH || gridY >= GRID_HEIGHT || 
+                    (gridY >= 0 && grid[gridY][gridX])) {
+                    canRotate = false;
+                    break;
+                }
+            }
         }
+        if (!canRotate) break;
+    }
+    
+    if (canRotate) {
+        currentShape = rotatedShape;
+        tetromino.clear(true, true);
         
-        block.x = newX;
-        block.y = newY;
-    });
+        for (let y = 0; y < rotatedShape.length; y++) {
+            for (let x = 0; x < rotatedShape[y].length; x++) {
+                if (rotatedShape[y][x]) {
+                    const block = game.scene.scenes[0].add.image(
+                        centerX + (x - Math.floor(rotatedShape[y].length / 2)) * BLOCK_SIZE,
+                        centerY + (y - Math.floor(rotatedShape.length / 2)) * BLOCK_SIZE,
+                        'block'
+                    );
+                    tetromino.add(block);
+                }
+            }
+        }
+    }
 }
